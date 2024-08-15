@@ -9,3 +9,6 @@ screenshots
 data/
 fig/
 wandb/
+data*
+outputs*
+submodules*/*
