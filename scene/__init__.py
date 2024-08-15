@@ -42,10 +42,10 @@ class Scene:
         self.pseudo_cameras = {}
 
         if os.path.exists(os.path.join(args.source_path, "sparse")):
-            scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.depths, args.eval, load_ply=load_ply)
+            scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.depths, args.eval, voxel_size=voxel_size)
         elif os.path.exists(os.path.join(args.source_path, "transforms_train.json")):
             print("Found transforms_train.json file, assuming Blender data set!")
-            scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval, load_ply=load_ply)
+            scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval, load_ply=load_ply, voxel_size=voxel_size)
         elif os.path.exists(os.path.join(args.source_path, "traj.txt")):
             print("Found traj.txt file, assuming Replica data set!")
             scene_info = sceneLoadTypeCallbacks["Replica"](args.source_path, args.eval, single_frame_id=single_frame_id, voxel_size=voxel_size, init_w_gaussian=init_w_gaussian, load_ply=load_ply)

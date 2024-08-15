@@ -107,6 +107,11 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, depths_fold
         R = np.transpose(qvec2rotmat(extr.qvec)) # R_colmap.T
         T = np.array(extr.tvec)
 
+        mat = np.zeros((4, 4))
+        mat[:3,:3] = R
+        mat[:3, 3] = T
+        mat[-1, -1] = 1
+
         if intr.model=="SIMPLE_PINHOLE":
             focal_length_x = intr.params[0]
             FovY = focal2fov(focal_length_x, height)
@@ -128,8 +133,12 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, depths_fold
         image = Image.open(image_path)
         depth = Image.open(depth_path)
 
+        R_gt=R.copy()
+        T_gt=T.copy()
+
         cam_info = CameraInfo(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
-                              image_path=image_path, image_name=image_name, width=width, height=height, depth=depth)
+                              image_path=image_path, image_name=image_name, width=width, height=height, depth=depth,
+                              Cx=int(width/2), Cy=int(height/2), R_gt=R_gt, T_gt=T_gt, mat=mat, raw_pc=None, kdtree=None)
         cam_infos.append(cam_info)
     sys.stdout.write('\n')
     return cam_infos
@@ -159,7 +168,22 @@ def storePly(path, xyz, rgb):
     ply_data = PlyData([vertex_element])
     ply_data.write(path)
 
-def readColmapSceneInfo(path, images, depths, eval, llffhold=8):
+def readColmapEvalSceneInfo(test_trajectory_dir):
+    try:
+        cameras_extrinsic_file = os.path.join(test_trajectory_dir, "sparse/0", "images.bin")
+        cameras_intrinsic_file = os.path.join(test_trajectory_dir, "sparse/0", "cameras.bin")
+        cam_extrinsics = read_extrinsics_binary(cameras_extrinsic_file)
+        cam_intrinsics = read_intrinsics_binary(cameras_intrinsic_file)
+    except:
+        cameras_extrinsic_file = os.path.join(test_trajectory_dir, "sparse/0", "images.txt")
+        cameras_intrinsic_file = os.path.join(test_trajectory_dir, "sparse/0", "cameras.txt")
+        cam_extrinsics = read_extrinsics_text(cameras_extrinsic_file)
+        cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
+
+    
+
+
+def readColmapSceneInfo(path, images, depths, eval, llffhold=8, voxel_size=0.1, init_w_gaussian=False, load_ply=False, use_pseudo_cam=False):
     try:
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
@@ -233,11 +257,16 @@ def readColmapSceneInfo(path, images, depths, eval, llffhold=8):
     viz_list.append(o3d_pcd)
     # o3d.visualization.draw_geometries(viz_list)
 
+    mean_xyz, mean_rgb, cov = precompute_gaussians(torch.tensor(pcd.points).to('cuda'), torch.tensor(pcd.colors).to('cuda'), voxel_size)
+    gaussian_init={"mean_xyz": mean_xyz, "mean_rgb": mean_rgb, "cov": cov}
+
     scene_info = SceneInfo(point_cloud=pcd,
                            train_cameras=train_cam_infos,
                            test_cameras=test_cam_infos,
                            nerf_normalization=nerf_normalization,
-                           ply_path=ply_path)
+                           ply_path=ply_path,
+                           pseudo_cameras=use_pseudo_cam,
+                           gaussian_init=gaussian_init)
     return scene_info
 
 def readCamerasFromTransforms(path, transformsfile, white_background, extension=".png"):
