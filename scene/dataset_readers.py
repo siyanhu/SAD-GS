@@ -155,6 +155,11 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, depths_fold
         R = np.transpose(qvec2rotmat(extr.qvec)) # R_colmap.T
         T = np.array(extr.tvec)
 
+        mat = np.zeros((4, 4))
+        mat[:3,:3] = R
+        mat[:3, 3] = T
+        mat[-1, -1] = 1
+
         if intr.model=="SIMPLE_PINHOLE":
             focal_length_x = intr.params[0]
             FovY = focal2fov(focal_length_x, height)
@@ -176,8 +181,12 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, depths_fold
         image = Image.open(image_path)
         depth = Image.open(depth_path)
 
+        R_gt=R.copy()
+        T_gt=T.copy()
+
         cam_info = CameraInfo(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
-                              image_path=image_path, image_name=image_name, width=width, height=height, depth=depth)
+                              image_path=image_path, image_name=image_name, width=width, height=height, depth=depth,
+                              Cx=int(width/2), Cy=int(height/2), R_gt=R_gt, T_gt=T_gt, mat=mat, raw_pc=None, kdtree=None)
         cam_infos.append(cam_info)
     sys.stdout.write('\n')
     return cam_infos
